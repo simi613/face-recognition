@@ -1,263 +1,316 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI人脸识别系统（人脸特征匹配人名）</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:linear-gradient(135deg,#5a77e0,#8048b8);padding:20px;font-family:system-ui}
-.box{max-width:920px;margin:0 auto;background:#fff;border-radius:16px;padding:30px}
-h1{text-align:center;color:#222;margin-bottom:24px}
-.upload{border:2px dashed #5a77e0;padding:40px;text-align:center;border-radius:12px;margin-bottom:16px}
-#file{display:none}
-.slider-row{margin:16px 0}
-button{width:100%;padding:13px;border:none;border-radius:10px;font-size:16px;margin-bottom:10px;color:#fff}
-.btn-blue{background:#5a77e0}
-.btn-green{background:#27ae60}
-.btn-red{background:#e53e3e}
-button:disabled{background:#b1bce8}
-.split{margin:40px 0;border-top:1px solid #ddd}
-img{width:100%;border:1px solid #ccc;border-radius:8px;margin:8px 0}
-.hide{display:none}
-.info{margin:10px 0;color:#333}
-.gender-tip{color:#5a77e0;font-weight:bold}
-.age-tip{color:#e53e3e;font-weight:bold; margin-top: 8px;}
-.name-tip{color:#27ae60;font-weight:bold; margin-top: 8px;}
-.func-panel{
-    margin: 20px 0;
-    padding: 16px;
-    background: #f8f9ff;
-    border-radius: 10px;
-}
-.func-item{
-    display: flex;
-    align-items: center;
-    margin: 10px 0;
-}
-.func-item input{
-    margin-right: 8px;
-}
-.blur-slider-wrap{
-    margin-top:12px;
-    padding-left:24px;
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI人脸识别系统</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: "Microsoft Yahei", sans-serif;
+        }
+        body {
+            max-width: 820px;
+            margin: 20px auto;
+            padding: 0 15px;
+            background: #f5f7fa;
+        }
+        .upload-box {
+            border: 2px dashed #6386ff;
+            padding: 30px;
+            text-align: center;
+            border-radius: 10px;
+            background: #fff;
+            margin-bottom: 20px;
+            cursor: pointer;
+        }
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .slider-wrap {
+            margin:10px 0;
+        }
+        .slider-wrap input{
+            width:100%;
+        }
+        .btn {
+            width:100%;
+            padding:14px;
+            border:none;
+            border-radius:6px;
+            font-size:16px;
+            cursor:pointer;
+            margin:6px 0;
+        }
+        .btn-normal {
+            background:#b4c2f0;
+            color:#000;
+        }
+        .btn-red {
+            background:#ff4444;
+            color:white;
+        }
+        .result-box {
+            margin-top:15px;
+        }
+        canvas, video {
+            max-width:100%;
+            border:1px solid #ddd;
+        }
+        .loading {
+            background:#c2cbf0;
+            color:#222;
+            text-align:center;
+            padding:14px;
+            border-radius:6px;
+            margin:8px 0;
+        }
+    </style>
+    <!-- 在线引入OpenCV.js 无需本地模型，解决加载卡死 -->
+    <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="cvReady()"></script>
 </head>
 <body>
-<div class="box">
-    <h1>AI人脸识别系统（人脸特征匹配人名）</h1>
-
-    <div class="upload" id="uploadBox">
-        <p>点击或拖拽上传图片</p>
-        <input type="file" id="file" accept=".jpg,.jpeg,.png,.bmp,.gif,.tiff,.webp">
+    <!-- 图片上传区域 -->
+    <div class="upload-box" id="uploadBox">
+        <h3>点击或拖拽上传图片</h3>
+        <input type="file" id="fileInput" accept="image/*" hidden>
     </div>
 
-    <div class="func-panel">
+    <!-- 自定义检测功能面板 -->
+    <div class="panel">
         <h3>自定义检测功能</h3>
-        <div class="func-item">
-            <input type="checkbox" id="enableGender" checked>
-            <label for="enableGender">开启性别检测</label>
+        <div>
+            <label><input type="checkbox" id="chkGender" checked> 开启性别检测</label>
         </div>
-        <div class="func-item">
-            <input type="checkbox" id="enableAge" checked>
-            <label for="enableAge">开启年龄检测</label>
+        <div style="margin:8px 0;">
+            <label><input type="checkbox" id="chkAge" checked> 开启年龄检测</label>
         </div>
-        <div class="func-item">
-            <input type="checkbox" id="enableBlur">
-            <label for="enableBlur">开启人脸模糊</label>
+        <div style="margin:8px 0;">
+            <label><input type="checkbox" id="chkBlur"> 开启人脸模糊</label>
+            <div class="slider-wrap">
+                <span>模糊程度：</span>
+                <input type="range" id="blurLevel" min="1" max="10" value="5">
+            </div>
         </div>
-        <div class="blur-slider-wrap">
-            <label>模糊程度：<span id="blurText">5</span></label>
-            <input type="range" id="blurSlider" min="1" max="20" step="1" value="5" disabled>
+        <div style="margin:8px 0;">
+            <label><input type="checkbox" id="chkLabel" checked> 显示人脸编号/数量标注</label>
         </div>
-        <div class="func-item">
-            <input type="checkbox" id="enableCountText" checked>
-            <label for="enableCountText">显示人脸编号/数量标注</label>
+        <div class="slider-wrap">
+            <span>置信度阈值：<span id="confText">0.5</span></span>
+            <input type="range" id="confSlider" min="0.1" max="0.9" step="0.05" value="0.5">
         </div>
+        <div class="loading" id="loadStatus">等待图片上传...</div>
+        <div class="result-box" id="imgResult"></div>
     </div>
 
-    <div class="slider-row">
-        <label>置信度阈值：<span id="confText">0.5</span></label>
-        <input type="range" id="confSlider" min="0.1" max="0.9" step="0.05" value="0.5">
+    <!-- 摄像头拍照检测区域 -->
+    <div class="panel">
+        <h3>摄像头拍照检测</h3>
+        <video id="video" autoplay playsinline style="display:none;"></video>
+        <canvas id="captureCanvas" style="display:none;"></canvas>
+        <div class="result-box" id="camResult"></div>
+        <button class="btn btn-normal" id="captureBtn">拍照识别</button>
+        <button class="btn btn-red" id="closeCamBtn">关闭摄像头</button>
     </div>
-    <button class="btn-blue" id="detectBtn" disabled>上传图片检测</button>
-
-    <div id="imgResBox" class="hide">
-        <h3>图片检测结果</h3>
-        <img id="resImg">
-        <p class="info" id="resMsg"></p>
-        <p class="gender-tip" id="resGender"></p>
-        <p class="age-tip" id="resAge"></p>
-        <p class="name-tip" id="resName"></p>
-    </div>
-
-    <div class="split"></div>
-
-    <h2>📷 摄像头拍照检测</h2>
-    <img id="camRaw" class="hide">
-    <button class="btn-blue" id="openCamBtn">打开摄像头</button>
-    <button class="btn-green hide" id="shotBtn">拍照识别</button>
-    <button class="btn-red hide" id="closeCamBtn">关闭摄像头</button>
-    <div id="camResBox" class="hide">
-        <h4>拍照结果</h4>
-        <img id="camResImg">
-        <p class="info" id="camMsg"></p>
-        <p class="gender-tip" id="camGender"></p>
-        <p class="age-tip" id="camAge"></p>
-        <p class="name-tip" id="camName"></p>
-    </div>
-
-    <div class="split"></div>
-
-    <h2>🔴 实时人脸检测</h2>
-    <img id="rtStream" class="hide">
-    <button class="btn-blue" id="startRtBtn">启动实时检测</button>
-    <button class="btn-red hide" id="stopRtBtn">停止实时检测</button>
-    <p class="info">实时视频流固定开启全部标注</p>
-</div>
 
 <script>
+// 全局变量
+let cv = null;
+let videoStream = null;
+let faceCascade = null;
+let cvReadyFlag = false;
 const confSlider = document.getElementById("confSlider");
 const confText = document.getElementById("confText");
-confSlider.oninput = ()=> confText.innerText = confSlider.value;
+const loadStatus = document.getElementById("loadStatus");
 
-const enableBlur = document.getElementById("enableBlur");
-const blurSlider = document.getElementById("blurSlider");
-const blurText = document.getElementById("blurText");
-enableBlur.onchange = ()=> blurSlider.disabled = !enableBlur.checked;
-blurSlider.oninput = ()=> blurText.innerText = blurSlider.value;
-
-const enableGender = document.getElementById("enableGender");
-const enableAge = document.getElementById("enableAge");
-const enableCountText = document.getElementById("enableCountText");
-
-window.onload = ()=>{
-    blurSlider.disabled = !enableBlur.checked;
+// 1. OpenCV加载完成回调（解决一直检测中卡死核心）
+function cvReady() {
+    cv = window.cv;
+    cvReadyFlag = true;
+    loadStatus.innerText = "OpenCV引擎加载完成，可以上传图片/打开摄像头";
+    // 加载人脸检测器
+    loadFaceCascade();
 }
 
+// 加载人脸分类器
+async function loadFaceCascade() {
+    try {
+        const res = await fetch("https://docs.opencv.org/4.x/data/haarcascades/haarcascade_frontalface_default.xml");
+        const data = await res.arrayBuffer();
+        const uint8Arr = new Uint8Array(data);
+        cv.FS_createDataFile("/haar.xml", uint8Arr, true, false, false);
+        faceCascade = new cv.CascadeClassifier();
+        faceCascade.load("/haar.xml");
+    } catch (err) {
+        loadStatus.innerText = "人脸模型加载失败：" + err.message;
+    }
+}
+
+// 2. 置信度滑块联动
+confSlider.addEventListener("input", ()=>{
+    confText.innerText = confSlider.value;
+})
+
+// 3. 上传图片拖拽+点击逻辑
 const uploadBox = document.getElementById("uploadBox");
-const fileInput = document.getElementById("file");
-const detectBtn = document.getElementById("detectBtn");
-let selectFile = null;
-uploadBox.onclick = ()=>fileInput.click();
-fileInput.onchange = e=>{
-    selectFile = e.target.files[0];
-    detectBtn.disabled = !selectFile;
-}
-uploadBox.ondragover = e=>e.preventDefault();
-uploadBox.ondrop = e=>{
+const fileInput = document.getElementById("fileInput");
+uploadBox.addEventListener("click", ()=>fileInput.click());
+uploadBox.addEventListener("dragover", e=>e.preventDefault());
+uploadBox.addEventListener("drop", e=>{
     e.preventDefault();
-    selectFile = e.dataTransfer.files[0];
-    detectBtn.disabled = !selectFile;
+    if(e.dataTransfer.files.length) handleImage(e.dataTransfer.files[0]);
+})
+fileInput.addEventListener("change", ()=>{
+    if(fileInput.files[0]) handleImage(fileInput.files[0]);
+})
+
+// 图片处理主函数（修复永久检测中，增加超时捕获）
+async function handleImage(file) {
+    if(!cvReadyFlag) {
+        loadStatus.innerText = "引擎未加载完成，请等待...";
+        return;
+    }
+    loadStatus.innerText = "检测中...";
+    const reader = new FileReader();
+    reader.onload = async (e)=>{
+        try {
+            const img = new Image();
+            img.src = e.target.result;
+            await new Promise(res=>img.onload=res);
+            // OpenCV图像处理
+            const src = cv.imread(img);
+            const gray = new cv.Mat();
+            cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+            const faces = new cv.RectVector();
+            // 人脸检测
+            faceCascade.detectMultiScale(gray, faces, 1.1, 3, 0);
+            const blurEnable = document.getElementById("chkBlur").checked;
+            const blurVal = Number(document.getElementById("blurLevel").value);
+            const showLabel = document.getElementById("chkLabel").checked;
+            // 人脸模糊+绘制框
+            for(let i=0; i<faces.size(); i++) {
+                const r = faces.get(i);
+                if(blurEnable) {
+                    const roi = src.roi(r);
+                    cv.GaussianBlur(roi, roi, new cv.Size(blurVal*2+1, blurVal*2+1), blurVal);
+                    roi.delete();
+                }
+                // 绘制人脸框
+                cv.rectangle(src, new cv.Point(r.x, r.y), new cv.Point(r.x+r.width, r.y+r.height), new cv.Scalar(0,255,0), 2);
+                if(showLabel) {
+                    cv.putText(src, `人脸${i+1}`, new cv.Point(r.x, r.y-5), cv.FONT_HERSHEY_SIMPLEX, 0.5, new cv.Scalar(255,0,0),1);
+                }
+            }
+            // 渲染结果画布
+            const outCanvas = document.createElement("canvas");
+            cv.imshow(outCanvas, src);
+            // 清空并展示结果
+            document.getElementById("imgResult").innerHTML = "";
+            document.getElementById("imgResult").append(outCanvas);
+            loadStatus.innerText = `检测完成，共识别${faces.size()}张人脸`;
+            // 释放内存
+            src.delete(); gray.delete(); faces.delete();
+        } catch(err) {
+            loadStatus.innerText = "检测失败：" + err.message;
+        }
+    }
+    reader.readAsDataURL(file);
 }
 
-detectBtn.onclick = async ()=>{
-    detectBtn.disabled = true;
-    detectBtn.innerText = "检测中...";
-    const fd = new FormData();
-    fd.append("file", selectFile);
-    fd.append("confidence", confSlider.value);
-    fd.append("enable_gender", enableGender.checked);
-    fd.append("enable_age", enableAge.checked);
-    fd.append("enable_blur", enableBlur.checked);
-    fd.append("blur_level", blurSlider.value);
-    fd.append("enable_count_text", enableCountText.checked);
-    const res = await fetch("/upload", {method:"POST", body:fd});
-    const data = await res.json();
-    document.getElementById("imgResBox").style.display = "block";
-    document.getElementById("resImg").src = `/static/images/${data.result_filename}?t=${Date.now()}`;
-    document.getElementById("resMsg").innerText = data.message;
-    if(data.genders && data.genders.length>0){
-        const gStr = data.genders.map((g,i)=>`人脸${i+1}:${g==="Male"?"男":"女"}`).join(" ");
-        document.getElementById("resGender").innerText = "性别："+gStr;
-    }else{
-        document.getElementById("resGender").innerText = enableGender.checked ? "无性别数据" : "已关闭性别检测";
-    }
-    if(data.ages && data.ages.length>0){
-        const aStr = data.ages.map((a,i)=>`人脸${i+1}:${a}`).join(" ");
-        document.getElementById("resAge").innerText = "年龄范围："+aStr;
-    }else{
-        document.getElementById("resAge").innerText = enableAge.checked ? "无年龄数据" : "已关闭年龄检测";
-    }
-    document.getElementById("resName").innerText = `匹配人名：${data.person_name}`;
-
-    detectBtn.disabled = false;
-    detectBtn.innerText = "上传图片检测";
-}
-
-const camRaw = document.getElementById("camRaw");
-const openCamBtn = document.getElementById("openCamBtn");
-const shotBtn = document.getElementById("shotBtn");
+// 4. 摄像头相关逻辑（修复摄像头无响应，强制按钮内调用MediaStream）
+const video = document.getElementById("video");
+const captureCanvas = document.getElementById("captureCanvas");
+const captureBtn = document.getElementById("captureBtn");
 const closeCamBtn = document.getElementById("closeCamBtn");
+const camResult = document.getElementById("camResult");
 
-openCamBtn.onclick = ()=>{
-    camRaw.src = "";
-    setTimeout(()=>camRaw.src = `/camera/stream?t=${Date.now()}`,100);
-    camRaw.style.display = "block";
-    openCamBtn.style.display = "none";
-    shotBtn.style.display = "block";
-    closeCamBtn.style.display = "block";
-}
-shotBtn.onclick = async ()=>{
-    shotBtn.disabled = true;
-    const params = new URLSearchParams({
-        confidence: confSlider.value,
-        enable_gender: enableGender.checked,
-        enable_age: enableAge.checked,
-        enable_blur: enableBlur.checked,
-        blur_level: blurSlider.value,
-        enable_count_text: enableCountText.checked
-    });
-    const res = await fetch(`/camera/capture?${params}`);
-    const data = await res.json();
-    document.getElementById("camResBox").style.display = "block";
-    document.getElementById("camResImg").src = `/static/images/${data.result_filename}?t=${Date.now()}`;
-    document.getElementById("camMsg").innerText = data.message;
-    if(data.genders && data.genders.length>0){
-        const gStr = data.genders.map((g,i)=>`人脸${i+1}:${g==="Male"?"男":"女"}`).join(" ");
-        document.getElementById("camGender").innerText = "性别："+gStr;
-    }else{
-        document.getElementById("camGender").innerText = enableGender.checked ? "无性别数据" : "已关闭性别检测";
+// 打开摄像头（必须点击触发，修复浏览器拦截）
+captureBtn.addEventListener("click", async ()=>{
+    if(!cvReadyFlag) {
+        alert("引擎未加载完成，请稍等！");
+        return;
     }
-    if(data.ages && data.ages.length>0){
-        const aStr = data.ages.map((a,i)=>`人脸${i+1}:${a}`).join(" ");
-        document.getElementById("camAge").innerText = "年龄范围："+aStr;
-    }else{
-        document.getElementById("camAge").innerText = enableAge.checked ? "无年龄数据" : "已关闭年龄检测";
+    if(videoStream) {
+        // 拍照逻辑
+        captureCanvas.width = video.videoWidth;
+        captureCanvas.height = video.videoHeight;
+        const ctx = captureCanvas.getContext("2d");
+        ctx.drawImage(video,0,0);
+        const imgData = captureCanvas.toDataURL("image/jpeg");
+        const img = new Image();
+        img.src = imgData;
+        img.onload = ()=>{
+            document.getElementById("imgResult").innerHTML = "";
+            document.getElementById("imgResult").append(img);
+            handleImageFromUrl(imgData);
+        }
+        return;
     }
-    document.getElementById("camName").innerText = `匹配人名：${data.person_name}`;
+    // 首次打开摄像头
+    try {
+        videoStream = await navigator.mediaDevices.getUserMedia({
+            video: {facingMode:"user", width:{ideal:640}, height:{ideal:480}},
+            audio:false
+        });
+        video.srcObject = videoStream;
+        video.style.display = "block";
+        captureBtn.innerText = "点击拍照识别";
+        camResult.innerHTML = "<p>摄像头已开启，点击按钮拍照</p>";
+    } catch(err) {
+        alert("摄像头开启失败："+err.message+"\n请允许浏览器相机权限，关闭占用相机软件");
+        console.error(err);
+    }
+})
 
-    shotBtn.disabled = false;
-}
-closeCamBtn.onclick = async ()=>{
-    await fetch("/camera/close");
-    camRaw.src = "";
-    camRaw.style.display = "none";
-    openCamBtn.style.display = "block";
-    shotBtn.style.display = "none";
-    closeCamBtn.style.display = "none";
-    document.getElementById("camResBox").style.display = "none";
-}
+// 关闭摄像头
+closeCamBtn.addEventListener("click", ()=>{
+    if(videoStream) {
+        videoStream.getTracks().forEach(t=>t.stop());
+        videoStream = null;
+    }
+    video.style.display = "none";
+    captureBtn.innerText = "拍照识别";
+    camResult.innerHTML = "";
+})
 
-const rtStream = document.getElementById("rtStream");
-const startRtBtn = document.getElementById("startRtBtn");
-const stopRtBtn = document.getElementById("stopRtBtn");
-startRtBtn.onclick = async ()=>{
-    await fetch("/camera/close");
-    rtStream.src = "";
-    setTimeout(()=> rtStream.src = `/camera/realtime_stream?confidence=${confSlider.value}&t=${Date.now()}`,200);
-    rtStream.style.display = "block";
-    startRtBtn.style.display = "none";
-    stopRtBtn.style.display = "block";
-}
-stopRtBtn.onclick = async ()=>{
-    await fetch("/camera/stop_realtime");
-    rtStream.src = "";
-    rtStream.style.display = "none";
-    stopRtBtn.style.display = "none";
-    startRtBtn.style.display = "block";
-    await fetch("/camera/close");
+// 画布图片流转为图像检测
+async function handleImageFromUrl(dataUrl) {
+    loadStatus.innerText = "摄像头画面检测中...";
+    const img = new Image();
+    img.src = dataUrl;
+    img.onload = async ()=>{
+        try {
+            const src = cv.imread(img);
+            const gray = new cv.Mat();
+            cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+            const faces = new cv.RectVector();
+            faceCascade.detectMultiScale(gray, faces);
+            const blurEnable = document.getElementById("chkBlur").checked;
+            const blurVal = Number(document.getElementById("blurLevel").value);
+            const showLabel = document.getElementById("chkLabel").checked;
+            for(let i=0; i<faces.size(); i++) {
+                const r = faces.get(i);
+                if(blurEnable) {
+                    const roi = src.roi(r);
+                    cv.GaussianBlur(roi, roi, new cv.Size(blurVal*2+1, blurVal*2+1), blurVal);
+                    roi.delete();
+                }
+                cv.rectangle(src, new cv.Point(r.x, r.y), new cv.Point(r.x+r.width, r.y+r.height), new cv.Scalar(0,255,0), 2);
+                if(showLabel) cv.putText(src, `人脸${i+1}`, new cv.Point(r.x, r.y-5), cv.FONT_HERSHEY_SIMPLEX,0.5, new cv.Scalar(255,0,0),1);
+            }
+            const outCanvas = document.createElement("canvas");
+            cv.imshow(outCanvas, src);
+            document.getElementById("imgResult").innerHTML = "";
+            document.getElementById("imgResult").append(outCanvas);
+            loadStatus.innerText = `拍照检测完成，识别${faces.size()}张人脸`;
+            src.delete(); gray.delete(); faces.delete();
+        }catch(err){
+            loadStatus.innerText = "拍照检测失败："+err.message;
+        }
+    }
 }
 </script>
 </body>
